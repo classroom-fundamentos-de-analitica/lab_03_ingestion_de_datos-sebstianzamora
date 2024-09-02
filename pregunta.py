@@ -9,7 +9,10 @@ espacio entre palabra y palabra.
 
 
 """
+
+import re
 import pandas as pd
+
 
 def ingest_data():
 
@@ -17,46 +20,46 @@ def ingest_data():
     # Inserte su código aquí
     #
 
-    with open('clusters_report.txt') as file:
-        lines = file.readlines()
+    with open("clusters_report.txt", "r") as file:
+        lineas_report = file.readlines()
 
-    # filtrar y limpiar las líneas de texto
-    clean_lines = [line.rstrip() for line in lines if line.strip()]
+        # encabezados
+        lineas_report[0] = re.sub(r"\s{2,}", "-", lineas_report[0]).strip().split("-")
+        lineas_report[1] = re.sub(r"\s{2,}", "-", lineas_report[1]).strip().split("-")
+        lineas_report[0].pop(), lineas_report[1].pop(0)
 
-    data = []
+        # diccionario de datos para el DataFrame
+        dataset = {
+            lineas_report[0][0]: [],
+            lineas_report[0][1] + " " + lineas_report[1][0]: [],
+            lineas_report[0][2] + " " + lineas_report[1][1]: [],
+            lineas_report[0][3]: [],
+        }
 
-    # procesar las líneas correspondientes a cada cluster
-    i = 4  # comienzan los datos de clusters
-    while i < len(clean_lines):
-        line = clean_lines[i]
 
-        # verifica si la línea comienza con un número, indicando un nuevo cluster
-        if line.split()[0].isdigit():
+        dataset = {col.lower().replace(' ', '_'): col_data for col, col_data in dataset.items()}
 
-            # extraer datos de la primera línea del cluster
-            parts = line.split()
-            cluster_id = int(parts[0])
-            cantidad_palabras = int(parts[1])
-            porcentaje_palabras = float(parts[2].replace(',', '.').replace('%', ''))
+        # procesamiento de las líneas con los datos de los clusters
+        for idx in range(2, len(lineas_report)):
             
-            # extraer y limpiar las palabras clave
-            palabras_clave = " ".join(line[30:].split())
+            # reemplazo de múltiples espacios en blanco y filtrado de elementos vacíos
+            lineas_report[idx] = re.sub(r"\s{2,}", ".", lineas_report[idx]).strip().split(".")
+            lineas_report[idx] = list(filter(lambda elem: elem, lineas_report[idx]))
 
-            # continuar hasta que las palabras clave se terminen
-            i += 1
-            while i < len(clean_lines) and not clean_lines[i].split()[0].isdigit():
-                palabras_clave += " " + " ".join(clean_lines[i].strip().split())
-                i += 1
+            # isnumeric
+            if lineas_report[idx] and lineas_report[idx][0].isnumeric():
+                dataset["cluster"].append(int(lineas_report[idx][0]))
+                dataset["cantidad_de_palabras_clave"].append(int(lineas_report[idx][1]))
+                dataset["porcentaje_de_palabras_clave"].append(float(lineas_report[idx][2][:-2].replace(",", ".")))
+                dataset["principales_palabras_clave"].append(" ".join(lineas_report[idx][3:]))
 
-            palabras_clave = palabras_clave.replace(' ,', ',').replace(', ', ',').replace(',', ', ').strip()
+            # si no es un nuevo registro, se continúa con las palabras clave del registro anterior
+            elif dataset["principales_palabras_clave"]:
+                last_keywords = dataset["principales_palabras_clave"].pop() + " " + " ".join(lineas_report[idx])
+                dataset["principales_palabras_clave"].append(last_keywords.strip())
 
-            data.append([cluster_id, cantidad_palabras, porcentaje_palabras, palabras_clave])
-        else:
-            i += 1
-    
-    df = pd.DataFrame(data, columns=["cluster", "cantidad_de_palabras_clave", "porcentaje_de_palabras_clave", "principales_palabras_clave"])
-
-    return df
+        df = pd.DataFrame(dataset)
+        return df
 
 #df = ingest_data()
 #print(df)
